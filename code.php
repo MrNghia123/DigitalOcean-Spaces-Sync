@@ -591,7 +591,23 @@ function dos_check_for_sync ($path) {
 
 
 if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1) {
+	function dos_check_redis_and_upload() {
+		$redis = new Redis(); 
+		$redis->connect('127.0.0.1', 6379); 
 
+		//store data in redis list 
+		$redisdata = $redis->rpop("dos_upload_queue"); 
+	// 	$filepath = $args[0];
+	// 	$attempt = cast
+		while ($redisdata) {
+			$args = explode(',',$redisdata);
+	// 		write_log('Found Redis entry: ');
+	// 		write_log($args);
+			dos_file_upload($args[0],$args[1],$args[2]);
+			$redisdata = $redis->rpop("dos_upload_queue"); 
+		}
+
+	}
 	function dos_add_cron_recurrence_interval( $schedules ) {
 		$feed_interval = 30;
 		$schedules['dos_scan_schedule'] = array(
