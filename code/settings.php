@@ -14,5 +14,8 @@ function dos_register_settings() {
   register_setting('dos_settings', 'dos_lazy_upload');
   register_setting('dos_settings', 'dos_filter');
   register_setting('dos_settings', 'dos_debug');
-
+  register_setting('dos_settings', 'dos_lazy_upload');
+  register_setting('dos_settings', 'dos_use_redis_queue');
+  register_setting('dos_settings', 'dos_redis_host');
+  register_setting('dos_settings', 'dos_redis_port');
 }

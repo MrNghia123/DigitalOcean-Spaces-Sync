@@ -28,6 +28,14 @@ function dos_settings_page () {
     update_option('dos_storage_path', '/');
   }
 
+  if ( get_option('dos_redis_host') == null ) {
+    update_option('dos_redis_host', '127.0.0.1');
+  }
+
+  if ( get_option('dos_redis_port') == null ) {
+    update_option('dos_redis_port', '6379');
+  }
+	
   include_once('code/settings_page.php');
 
 }
@@ -333,8 +341,20 @@ function dos_storage_upload ($postID) {
     }
 
     if ( get_option('dos_lazy_upload') == 1 ) {
+ 		if ( get_option('dos_use_redis_queue') == 1) {
+			$redis = new Redis(); 
+		   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+// 			write_log('Pushed to Redis: ' . $filepath);
+		
+		   //store data in redis list 
+		   $redisdata = $filepath . ',0,1';
+		   $redis->lpush("dos_upload_queue", $redisdata); 
+		} else {
+			  wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
+// 			write_log('Scheduled by wp cron: ' . $filepath);
+			
+		}
 
-      wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
 
     } else {
 
@@ -434,7 +454,20 @@ function dos_thumbnail_upload ($metadata) {
     
     if ( get_option('dos_lazy_upload') ) {
 
-      wp_schedule_single_event(time() + 2, 'dos_schedule_upload', array($filepath, 0, true));
+ 		if ( get_option('dos_use_redis_queue') == 1) {
+			$redis = new Redis(); 
+		   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+// 			write_log('Pushed to Redis: ' . $filepath);
+		
+		   //store data in redis list 
+		   $redisdata = $filepath . ',0,1';
+		   $redis->lpush("dos_upload_queue", $redisdata); 
+		} else {
+	      wp_schedule_single_event(time() + 2, 'dos_schedule_upload', array($filepath, 0, true));
+// 			write_log('Scheduled by wp cron: ' . $filepath);
+			
+		}
+		
 
       if (get_option('dos_debug') == 1 and isset($log)) {
         $log->info("Add schedule. File - " . $filepath);
@@ -469,26 +502,6 @@ function dos_thumbnail_upload ($metadata) {
  * @param string $url
  * @return string $url
  */
-function dos_attachment_url ($url) {
-
-  $http = site_url();
-  $upload_url = get_option('upload_url_path');
-  $upload_path = get_option('upload_path');
-  $home_path = get_home_path();
-  $regex = get_option('dos_filter');
-
-  // prepare regex
-  if ( $regex == '*' ) {
-    $regex = '';
-  }
-
-  if ( preg_match( $regex, $url) ) {
-    return $http . '/' . str_replace($home_path, '', $upload_path) . str_replace($upload_url, '', $url);
-  } else {
-    return $url;
-  }
-
-}
 
 /**
  * @param string $pattern
@@ -573,6 +586,33 @@ function dos_check_for_sync ($path) {
   }
 
   return $result;
+
+}
+
+
+if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1) {
+
+	function dos_add_cron_recurrence_interval( $schedules ) {
+		$feed_interval = 30;
+		$schedules['dos_scan_schedule'] = array(
+			'interval'  => $feed_interval,
+			'display'   => __( sprintf('Every %d Seconds', $feed_interval), 'textdomain' )
+		);
+		return $schedules;
+	}
+	
+	add_filter( 'cron_schedules', 'dos_add_cron_recurrence_interval' );
+
+	if( !wp_next_scheduled( 'dos_scan_redis_hook' ) ) {
+		write_log('adding hook');
+			wp_schedule_event( time(), 'dos_scan_schedule', 'dos_scan_redis_hook' );
+		} else {
+		write_log('hook dos_scan_redis_hook exists!');
+
+	}
+
+	write_log('adding action dos_check_redis_and_upload to dos_scan_redis_hook');
+	add_action( 'dos_scan_redis_hook', 'dos_check_redis_and_upload');
 
 }
 

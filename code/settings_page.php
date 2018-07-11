@@ -225,6 +225,8 @@
 
       </div>
 
+      <div class="dos__block">
+	  
       <div class="row">
         
         <div class="col-xs-1 col-sm-1 col-md-1 col-lg-1" style="width: 50px;">
@@ -264,6 +266,75 @@
         </div>
 
       </div>
+	  </div>
+
+      <div class="row">
+        
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+          <h4>
+            <?php _e('Lazy upload settings', 'dos'); ?>
+          </h4>
+        </div>
+
+      </div>
+
+		  <div class="row">
+
+			<div class="col-xs-1 col-sm-1 col-md-1 col-lg-1">
+			  <input id="dos_lazy_upload" type="checkbox" name="dos_lazy_upload"
+					 value="1" <?php checked( get_option('dos_lazy_upload'), 1); ?> />
+			</div>
+
+			<div class="col-xs-11 col-sm-11 col-md-11 col-lg-11">
+			  <?php _e('Enable lazy upload. WP Cron must be working!', 'dos'); ?>
+			</div>
+
+		  </div>
+
+		  <div class="row">
+
+			<div class="col-xs-1 col-sm-1 col-md-1 col-lg-1">
+			  <input id="dos_use_redis_queue" type="checkbox" name="dos_use_redis_queue"
+					 value="1" <?php checked( get_option('dos_use_redis_queue'), 1); ?> />
+			</div>
+
+			<div class="col-xs-11 col-sm-11 col-md-11 col-lg-11">
+			  <?php _e('Use Redis as lazy upload job queue (instead of relying on the buggy WP cron). Yes, you need a working Redis server.', 'dos'); ?>
+			</div>
+
+		  </div>
+	  
+        <div class="row">
+          
+          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-2">
+            <label for="dos_redis_host">
+              <?php _e('Redis host', 'dos'); ?>:
+            </label>
+          </div>
+
+          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-10">
+            <input id="dos_redis_host" name="dos_redis_host" type="text"
+                   value="<?php echo esc_attr( get_option('dos_redis_host') ); ?>" 
+                   class="regular-text code"/>
+          </div>
+
+        </div>
+
+        <div class="row">
+          
+          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-2">
+            <label for="dos_redis_port">
+              <?php _e('Redis port', 'dos'); ?>:
+            </label>
+          </div>
+
+          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-10">
+            <input id="dos_redis_port" name="dos_redis_port" type="text"
+                   value="<?php echo esc_attr( get_option('dos_redis_port') ); ?>" 
+                   class="regular-text code"/>
+          </div>
+
+        </div>
 
       <div class="row">
         
@@ -273,7 +344,8 @@
         </div>
 
       </div>
-
+		  
+	  
     </form>
 
   </div>
