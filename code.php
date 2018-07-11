@@ -604,14 +604,10 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 	add_filter( 'cron_schedules', 'dos_add_cron_recurrence_interval' );
 
 	if( !wp_next_scheduled( 'dos_scan_redis_hook' ) ) {
-		write_log('adding hook');
 			wp_schedule_event( time(), 'dos_scan_schedule', 'dos_scan_redis_hook' );
 		} else {
-		write_log('hook dos_scan_redis_hook exists!');
-
 	}
 
-	write_log('adding action dos_check_redis_and_upload to dos_scan_redis_hook');
 	add_action( 'dos_scan_redis_hook', 'dos_check_redis_and_upload');
 
 }
