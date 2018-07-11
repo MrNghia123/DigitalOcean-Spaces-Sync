@@ -248,7 +248,7 @@ function dos_file_upload ($pathToFile, $attempt = 0, $del = false) {
     }
 
     // check if readable and regex matched
-    if ( is_readable($pathToFile) && !preg_match( $regex, $pathToFile) ) {
+    if ( is_readable($pathToFile) && ($regex == '' || !preg_match( $regex, $pathToFile) )) {
 
       $filesystem->put( dos_filepath($pathToFile), file_get_contents($pathToFile), [
         'visibility' => AdapterInterface::VISIBILITY_PUBLIC
