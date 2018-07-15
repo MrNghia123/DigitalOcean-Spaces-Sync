@@ -18,4 +18,5 @@ function dos_register_settings() {
   register_setting('dos_settings', 'dos_use_redis_queue');
   register_setting('dos_settings', 'dos_redis_host');
   register_setting('dos_settings', 'dos_redis_port');
+  register_setting('dos_settings', 'dos_retry_count');
 }

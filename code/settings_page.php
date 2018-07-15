@@ -336,6 +336,25 @@
 
         </div>
 
+	          <div class="row">
+          
+          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-2">
+            <label for="dos_retry_count">
+              <?php _e('Retry count', 'dos'); ?>:
+            </label>
+          </div>
+
+          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-10">
+            <input id="dos_retry_count" name="dos_retry_count" type="text"
+                   value="<?php echo esc_attr( get_option('dos_retry_count') ); ?>" 
+                   class="regular-text code"/>
+            <div class="dos__description">
+              <?php _e('By default empty for infinite retry', 'dos'); ?>
+            </div>
+          </div>
+
+        </div>
+
       <div class="row">
         
         <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">

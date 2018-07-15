@@ -6,9 +6,21 @@ use League\Flysystem\AwsS3v3\AwsS3Adapter;
 use League\Flysystem\Filesystem;
 require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
 
+if ( ! function_exists('write_log')) {
+   function write_log ( $log )  {
+      if ( is_array( $log ) || is_object( $log ) ) {
+         error_log( print_r( $log, true ) );
+      } else {
+         error_log( $log );
+      }
+   }
+}
+
 /**
  * Creates settings page and sets default options
  */
+$redis = null;
+
 function dos_settings_page () {
 
   // Default settings
@@ -207,7 +219,7 @@ function dos_dump ($data) {
  * @return bool Successful load returns true, false otherwise
  */
 function dos_file_upload ($pathToFile, $attempt = 0, $del = false) {
-
+	global $redis;
   // init cloud filesystem
   $filesystem = __DOS();
   $regex = get_option('dos_filter');
@@ -268,13 +280,17 @@ function dos_file_upload ($pathToFile, $attempt = 0, $del = false) {
     return true;
 
   } catch (Exception $e) {
-
+	write_log($e->getCode() . ' :: ' . $e->getMessage());
     if ( get_option('dos_debug') == 1 and isset($log) ) {
       $log->error($e->getCode() . ' :: ' . $e->getMessage());
     }
 
-    if ( $attempt < 3 ) {
-      wp_schedule_single_event(time() + 5, 'dos_schedule_upload', array($pathToFile, ++$attempt));
+    if ( !get_option('dos_retry_count') ||  $attempt < get_option('dos_retry_count') ) {
+		if (get_option('dos_use_redis_queue')) {
+			dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
+		} else {
+	      wp_schedule_single_event(time() + 60, 'dos_schedule_upload', array($pathToFile, ++$attempt, $del));
+		}
     }
 
     return false;
@@ -325,7 +341,7 @@ function dos_file_delete ($file, $attempt = 0) {
  * @return bool
  */
 function dos_storage_upload ($postID) {
-
+	global $redis;
   if ( wp_attachment_is_image($postID) == false ) {
 
     $file = get_attached_file($postID);
@@ -342,8 +358,10 @@ function dos_storage_upload ($postID) {
 
     if ( get_option('dos_lazy_upload') == 1 ) {
  		if ( get_option('dos_use_redis_queue') == 1) {
-			$redis = new Redis(); 
-		   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+			if ($redis == null) {
+				$redis = new Redis(); 
+			   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+			}
 // 			write_log('Pushed to Redis: ' . $filepath);
 		
 		   //store data in redis list 
@@ -407,7 +425,7 @@ function dos_storage_delete ($file) {
  * @return array Returns $metadata array without changes
  */
 function dos_thumbnail_upload ($metadata) {
-
+	global $redis;
   $paths = array();
   $upload_dir = wp_upload_dir();
 
@@ -455,13 +473,15 @@ function dos_thumbnail_upload ($metadata) {
     if ( get_option('dos_lazy_upload') ) {
 
  		if ( get_option('dos_use_redis_queue') == 1) {
-			$redis = new Redis(); 
-		   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
-// 			write_log('Pushed to Redis: ' . $filepath);
-		
-		   //store data in redis list 
-		   $redisdata = $filepath . ',0,1';
-		   $redis->lpush("dos_upload_queue", $redisdata); 
+			dos_redis_queue_push($filepath, 0, true, 2);
+// 			if ($redis == null) {
+// 				$redis = new Redis(); 
+// 			   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+// 	// 			write_log('Pushed to Redis: ' . $filepath);
+// 			}
+// 		   //store data in redis list 
+// 		   $redisdata = $filepath . ',0,1';
+// 		   $redis->lpush("dos_upload_queue", $redisdata); 
 		} else {
 	      wp_schedule_single_event(time() + 2, 'dos_schedule_upload', array($filepath, 0, true));
 // 			write_log('Scheduled by wp cron: ' . $filepath);
@@ -591,22 +611,51 @@ function dos_check_for_sync ($path) {
 
 
 if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1) {
+	function dos_redis_queue_push($pathToFile, $attempt, $del, $delay = 0) {
+		global $redis;
+		if ($redis ==null) {
+			$redis = new Redis(); 
+			$redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+		}
+		$new_entry = $pathToFile . ',' . $attempt . ',' . ($del?"1":"0");
+		$redis->zadd('dos_delayed_queue', time() + $delay, $new_entry);
+	}
+	function dos_redis_queue_pop() {
+		global $redis;
+		if ($redis ==null) {
+			$redis = new Redis(); 
+			$redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+		}
+		$results = array();
+		$redis->watch("dos_delayed_queue");
+		$results = $redis->zrangebyscore("dos_delayed_queue", 0, time());
+		$redis->multi();
+		if ($results) {
+			foreach ($results as $entry) {
+				$redis->zrem('dos_delayed_queue', $entry);
+			}
+		}
+		if ($redis->exec())
+			return $results;
+		return array();
+		
+// 		$redisdata = $redis->rpop("dos_upload_queue"); 
+// 		if (!$redisdata)
+// 			return false;
+// 		$args = explode(',',$redisdata);
+// 		return array($args[0],(int)$args[1],$args[2]);		
+	}
 	function dos_check_redis_and_upload() {
-		$redis = new Redis(); 
-		$redis->connect('127.0.0.1', 6379); 
 
 		//store data in redis list 
-		$redisdata = $redis->rpop("dos_upload_queue"); 
+		$jobs = dos_redis_queue_pop(); 
 	// 	$filepath = $args[0];
 	// 	$attempt = cast
-		while ($redisdata) {
-			$args = explode(',',$redisdata);
-	// 		write_log('Found Redis entry: ');
-	// 		write_log($args);
-			dos_file_upload($args[0],$args[1],$args[2]);
-			$redisdata = $redis->rpop("dos_upload_queue"); 
+	// 	
+		foreach ($jobs as $entry) {
+			$args = explode(',',$entry);
+			dos_file_upload($args[0],(int)$args[1],$args[2]);
 		}
-
 	}
 	function dos_add_cron_recurrence_interval( $schedules ) {
 		$feed_interval = 30;
