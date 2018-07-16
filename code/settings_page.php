@@ -267,6 +267,7 @@
 
       </div>
 	  </div>
+      <div class="dos__block">
 
       <div class="row">
         
@@ -335,8 +336,27 @@
           </div>
 
         </div>
+	  <div class="row">
+          
+          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-2">
+            <label for="dos_redis_queue_batch_size">
+              <?php _e('Batch size', 'dos'); ?>:
+            </label>
+          </div>
 
-	          <div class="row">
+          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-10">
+            <input id="dos_redis_queue_batch_size" name="dos_redis_queue_batch_size" type="text"
+                   value="<?php echo esc_attr( get_option('dos_redis_queue_batch_size') ); ?>" 
+                   class="regular-text code"/>
+            <div class="dos__description">
+              <?php _e('Batch upload of files (only work with Redis)', 'dos'); ?>
+            </div>
+          </div>
+
+        </div>
+	  </div>
+
+	  <div class="row">
           
           <div class="col-xs-12 col-sm-12 col-md-12 col-lg-2">
             <label for="dos_retry_count">
