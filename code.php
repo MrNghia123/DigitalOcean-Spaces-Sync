@@ -10,7 +10,7 @@ use Aws\AwsException;
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\AwsS3v3\AwsS3Adapter;
 use League\Flysystem\Filesystem;
-require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
+$autoloader = require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
 
 if ( ! function_exists('write_log')) {
    function write_log ( $log )  {
@@ -654,9 +654,11 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 			$redis = new Redis(); 
 			$redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
 		}
-		$results = array();
 		$redis->watch("dos_delayed_queue");
-		$results = $redis->zrangebyscore("dos_delayed_queue", 0, time(), array('limit' => array(0, $limit)));
+// 		$results = $redis->zRangeByScore('dos_delayed_queue', 0, time(), array('limit' => array(0, 1)); /* array('val2') */
+
+		$results = $redis->zRangeByScore('dos_delayed_queue', 0, time(), array('limit' => array(0, (int)$limit)));
+		write_log('Upload ' .  sizeof($results) . ' files');
 		$redis->multi();
 		if ($results) {
 			foreach ($results as $entry) {
@@ -695,6 +697,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 	}
 	function dos_check_redis_and_upload() {
 		global $s3Client;
+		global $autoloader;
 		$dos_container = get_option('dos_container');
 		if ($s3Client==null) {
 			$s3Client = __S3();
@@ -702,24 +705,39 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		//Pop a batch from the queue
 		
 		if (get_option('dos_redis_queue_batch_size') >0) {
-			$batchSize = get_option('dos_redis_queue_batch_size');
+			$batchSize = (int)get_option('dos_redis_queue_batch_size');
 		} else {
 			$batchSize = 25;
 		}
+// 		$autoloader = require "./vendor/autoload.php";
+// 		$loadresult = require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
+
+		if (!class_exists('Aws\CommandPool')) {
+			write_log("Class CommandPool not exists, loading now");
+			$autoloader->loadClass("Aws\CommandPool");
+		}
+// 		$loadresult = $autoloader->findFile("Aws\CommandPool");
+// 		exit(1);
+		
 		$jobs = dos_redis_queue_pop($batchSize); 
-		while(sizeof($jobs) > 0) {
+		$batchNumber = 0;
+		while(sizeof($jobs) > 0 && $batchNumber++ < 10) {
 			// Now create multiple commands for batching the files to S3
 			$commands = array();
 			foreach ($jobs as $entry) {
+				
 				$args = explode(',',$entry);
-				$s3key = ltrim(dos_filepath($args[0]),'/');
-				$commands[] = $s3Client->getCommand('PutObject', array(
-					'Bucket' => $dos_container,
-					'Key'    => $s3key,
-					'Body' => fopen ( $args[0], 'r' ),
-					'ACL' => 'public-read',
-					'ContentType' => 'image/jpeg'
-				));
+				if ( is_readable($args[0])) {
+					$s3key = ltrim(dos_filepath($args[0]),'/');
+					$ext = pathinfo($args[0], PATHINFO_EXTENSION);
+					$commands[] = $s3Client->getCommand('PutObject', array(
+						'Bucket' => $dos_container,
+						'Key'    => $s3key,
+						'Body' => fopen ( $args[0], 'r' ),
+						'ACL' => 'public-read',
+						'ContentType' => "image/$ext"
+					));
+				}
 			}
 
 			// Create a pool and provide an optional array of configuration
@@ -728,8 +746,8 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 				'concurrency' => $batchSize,
 				// Invoke this function before executing each command
 				'before' => function (CommandInterface $cmd, $iterKey) {
-					write_log( "About to send {$iterKey}: "
-						. print_r($cmd->toArray(), true) . "\n");
+// 					write_log( "About to send {$iterKey}: "
+// 						. print_r($cmd->toArray(), true) . "\n");
 				},
 				// Invoke this function for each successful transfer
 				'fulfilled' => function (
@@ -739,7 +757,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 				) use ($jobs) {
 					$args = explode(',',$jobs[$iterKey]);
 					$pathToFile = $args[0];
-					write_log("Completed {$iterKey}: {$result} {$pathToFile}");
+// 					write_log("Completed {$iterKey}: {$result} {$pathToFile}");
 					if (get_option('dos_storage_file_only') == 1) {
 						dos_file_delete($pathToFile);
 					}
@@ -750,10 +768,10 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 					$iterKey,
 					PromiseInterface $aggregatePromise
 				) use ($jobs) {
-					write_log("Failed {$iterKey}: {$reason}");
 					$args = explode(',',$jobs[$iterKey]);
 					$attempt = (int)$args[1];
 					$pathToFile = $args[0];
+					write_log("Failed to upload {$pathToFile}: {$reason}");
 					$del = $args[2];
 					if ( !get_option('dos_retry_count') ||  $attempt < get_option('dos_retry_count') ) {
 						dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
@@ -766,22 +784,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 
 			// Force the pool to complete synchronously
 			$promise->wait();
-// 			
-			// Force the pool to complete synchronously
-// 			$pool = new CommandPool($s3Client, $commands);
-
-// 			// Initiate the pool transfers
-// 			$promise = $pool->promise();
-// 			try {
-// 				$results = $promise->wait();
-// 				write_log($results);
-// 				foreach ($results as $key => $result) {
-// 					write_log($result);
-// 				}
-// 			} catch (AwsException $e) {
-// 				write_log("All error!");
-// 			}
-			
+// 						
 			$jobs = dos_redis_queue_pop($batchSize); 
 		}
 	}

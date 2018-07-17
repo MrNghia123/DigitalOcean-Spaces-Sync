@@ -1,0 +1,8 @@
+$redis=new Redis();
+$redis->zAdd('key', 0, 'val0');
+$redis->zAdd('key', 2, 'val2');
+$redis->zAdd('key', 10, 'val10');
+var_dump($redis->zRangeByScore('key', 0, 3)));
+var_dump($redis->zRangeByScore('key', 0, 3, array('withscores' => TRUE)));
+var_dump($redis->zRangeByScore('key', 0, 3, array('limit' => array(1, 1)));
+var_dump($redis->zRangeByScore('key', 0, 3, array('withscores' => TRUE, 'limit' => array(1, 1)));

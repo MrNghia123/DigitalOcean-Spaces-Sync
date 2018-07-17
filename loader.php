@@ -2,10 +2,10 @@
 /**
  * Plugin Name: Team Cao DigitalOcean Spaces Sync
  * Plugin URI: https://github.com/MrNghia123/DigitalOcean-Spaces-Sync
- * Description: This WordPress plugin syncs your media library with DigitalOcean Spaces Container. Patched by Nghia Huynh (https://github.com/MrNghia123).
- * Version: 1.1.0.2
- * Author: keeross
- * Author URI: https://github.com/keeross
+ * Description: This WordPress plugin syncs your media library with DigitalOcean Spaces Container. Developed by keeross(https://github.com/keeross). Enhanced by Nghia Huynh (https://github.com/MrNghia123).
+ * Version: 1.1.0.3
+ * Author: Nghia Huynh
+ * Author URI: https://github.com/MrNghia123
  * License: MIT
  * Text Domain: dos
  * Domain Path: /languages
