@@ -650,21 +650,22 @@ add_filter( 'cron_schedules', 'dos_add_cron_recurrence_interval' );
 
 if (get_option('dos_lazy_thumbnail')==1) {
 	function dos_generate_thumbnail() {
+		include_once( ABSPATH . 'wp-admin/includes/image.php' );
 		$start = time();
 		write_log('dos_generate_thumbnail');
 		$posts_need_thumbnail = get_posts( array( 'post_type' => 'attachment', 'fields'=>'ids', 'meta_key' => '_meta_required', 'posts_per_page' => -1 ));
 		
-		foreach ( $posts_need_thumbnail as $post ) {
-			write_log($post);
-			$file = get_post_meta( $post->ID, '_meta_required', true );
+		foreach ( $posts_need_thumbnail as $post_id ) {
+			write_log($post_id);
+			$file = get_post_meta( $post_id, '_meta_required', true );
 			write_log($file);
 
-			$attach_data = wp_generate_attachment_metadata( $post->ID, $file );
-			wp_update_attachment_metadata( $post->ID, $attach_data );
+			$attach_data = wp_generate_attachment_metadata( $post_id, $file );
+			wp_update_attachment_metadata( $post_id, $attach_data );
 
-			delete_post_meta( $post->ID, '_meta_required' );
+			delete_post_meta( $post_id, '_meta_required' );
 		}
-		write_log('dos_generate_thumbnail finish after ms ' + (time() - $start));
+		write_log('dos_generate_thumbnail finish after ms ' . (time() - $start));
 	}
 	
 	if( !wp_next_scheduled( 'dos_gen_thumbnail_hook' ) ) {
