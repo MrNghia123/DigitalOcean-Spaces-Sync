@@ -1,4 +1,5 @@
 
 vendor
 logs/**.txt
+logs/**.log
 sftp-config.json

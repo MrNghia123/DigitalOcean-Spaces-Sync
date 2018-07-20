@@ -637,6 +637,43 @@ if (get_option('dos_storage_file_only') == 1) {
 	add_filter('sanitize_file_name', 'dos_unique_file_name', 10, 2);
 
 }
+function dos_add_cron_recurrence_interval( $schedules ) {
+	$feed_interval = 60;
+	$schedules['dos_scan_schedule'] = array(
+		'interval'  => $feed_interval,
+		'display'   => __( sprintf('Every %d Seconds', $feed_interval), 'textdomain' )
+	);
+	return $schedules;
+}
+
+add_filter( 'cron_schedules', 'dos_add_cron_recurrence_interval' );
+
+if (get_option('dos_lazy_thumbnail')==1) {
+	function dos_generate_thumbnail() {
+		$start = time();
+		write_log('dos_generate_thumbnail');
+		$posts_need_thumbnail = get_posts( array( 'post_type' => 'attachment', 'fields'=>'ids', 'meta_key' => '_meta_required', 'posts_per_page' => -1 ));
+		
+		foreach ( $posts_need_thumbnail as $post ) {
+			write_log($post);
+			$file = get_post_meta( $post->ID, '_meta_required', true );
+			write_log($file);
+
+			$attach_data = wp_generate_attachment_metadata( $post->ID, $file );
+			wp_update_attachment_metadata( $post->ID, $attach_data );
+
+			delete_post_meta( $post->ID, '_meta_required' );
+		}
+		write_log('dos_generate_thumbnail finish after ms ' + (time() - $start));
+	}
+	
+	if( !wp_next_scheduled( 'dos_gen_thumbnail_hook' ) ) {
+			wp_schedule_event( time(), 'dos_scan_schedule', 'dos_gen_thumbnail_hook' );
+		} else {
+	}
+	add_action( 'dos_scan_redis_hook', 'dos_generate_thumbnail');
+	
+}
 
 if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1) {
 	function dos_redis_queue_push($pathToFile, $attempt = 0, $del = false, $delay = 0) {
@@ -788,22 +825,12 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 			$jobs = dos_redis_queue_pop($batchSize); 
 		}
 	}
-	function dos_add_cron_recurrence_interval( $schedules ) {
-		$feed_interval = 30;
-		$schedules['dos_scan_schedule'] = array(
-			'interval'  => $feed_interval,
-			'display'   => __( sprintf('Every %d Seconds', $feed_interval), 'textdomain' )
-		);
-		return $schedules;
-	}
-	
-	add_filter( 'cron_schedules', 'dos_add_cron_recurrence_interval' );
 
 	if( !wp_next_scheduled( 'dos_scan_redis_hook' ) ) {
 			wp_schedule_event( time(), 'dos_scan_schedule', 'dos_scan_redis_hook' );
 		} else {
 	}
-
+	
 	add_action( 'dos_scan_redis_hook', 'dos_check_redis_and_upload');
 
 }

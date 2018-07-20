@@ -273,11 +273,24 @@
         
         <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
           <h4>
-            <?php _e('Lazy upload settings', 'dos'); ?>
+            <?php _e('Perfomance settings (need WP Cron)', 'dos'); ?>
           </h4>
         </div>
 
       </div>
+
+		 <div class="row">
+
+			<div class="col-xs-1 col-sm-1 col-md-1 col-lg-1">
+			  <input id="dos_lazy_thumbnail" type="checkbox" name="dos_lazy_thumbnail"
+					 value="1" <?php checked( get_option('dos_lazy_thumbnail'), 1); ?> />
+			</div>
+
+			<div class="col-xs-11 col-sm-11 col-md-11 col-lg-11">
+			  <?php _e('Enable lazy thumbnail creation. You need to tweak plugin code to "defer" the thumbnail creation first!', 'dos'); ?>
+			</div>
+
+		  </div>
 
 		  <div class="row">
 
@@ -287,7 +300,7 @@
 			</div>
 
 			<div class="col-xs-11 col-sm-11 col-md-11 col-lg-11">
-			  <?php _e('Enable lazy upload. WP Cron must be working!', 'dos'); ?>
+			  <?php _e('Enable lazy upload', 'dos'); ?>
 			</div>
 
 		  </div>
