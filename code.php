@@ -649,30 +649,65 @@ function dos_add_cron_recurrence_interval( $schedules ) {
 add_filter( 'cron_schedules', 'dos_add_cron_recurrence_interval' );
 
 if (get_option('dos_lazy_thumbnail')==1) {
+	function dos_lazy_thumbnail_input($attachment_id, $file_path) {
+		global $redis;
+		if (get_option('dos_use_redis_queue')==1) {
+			if ($redis ==null) {
+				$redis = new Redis(); 
+				$redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+			}
+		   $redisdata = $attachment_id . ',' . $file_path;
+		   $redis->lpush("dos_thumbnail_queue", $redisdata); 
+		} else {
+			update_post_meta( $attachment_id, '_meta_required', $file_path );
+		}
+	}
+	
+	add_action('dos_lazy_thumbnail_input', 'dos_lazy_thumbnail_input', 10, 2);
+	
 	function dos_generate_thumbnail() {
+		global $redis;
 		include_once( ABSPATH . 'wp-admin/includes/image.php' );
 		$start = time();
 		write_log('dos_generate_thumbnail');
-		$posts_need_thumbnail = get_posts( array( 'post_type' => 'attachment', 'fields'=>'ids', 'meta_key' => '_meta_required', 'posts_per_page' => -1 ));
-		
-		foreach ( $posts_need_thumbnail as $post_id ) {
-			write_log($post_id);
-			$file = get_post_meta( $post_id, '_meta_required', true );
-			write_log($file);
+		if (get_option('dos_use_redis_queue')==1) {
+			if ($redis ==null) {
+				$redis = new Redis(); 
+				$redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+			}
+			$redisdata = $redis->rpop("dos_thumbnail_queue"); 
+			while ($redisdata) {
+				$args = explode(',',$redisdata);
+				$attachment_id = (int) $args[0];
+				$file_path = $args[1];
+				$attach_data = wp_generate_attachment_metadata( $attachment_id, $file_path );
+				wp_update_attachment_metadata( $attachment_id, $attach_data );
+				
+				$redisdata = $redis->rpop("dos_thumbnail_queue"); 
+			}
+		} else {
+			$posts_need_thumbnail = get_posts( array( 'post_type' => 'attachment', 'fields'=>'ids', 'meta_key' => '_meta_required', 'posts_per_page' => 10 ));
+			$jobs = array();
 
-			$attach_data = wp_generate_attachment_metadata( $post_id, $file );
-			wp_update_attachment_metadata( $post_id, $attach_data );
-
-			delete_post_meta( $post_id, '_meta_required' );
+			foreach ( $posts_need_thumbnail as $post_id ) {
+				$file = get_post_meta( $post_id, '_meta_required', true );
+				$jobs[]=array('post_id' => $post_id, 'file' => $file);
+				delete_post_meta( $post_id, '_meta_required' );
+			}
+			foreach ( $jobs as $job ) {
+				write_log('Generate thumbnails for ' . $job['file']);
+				$attach_data = wp_generate_attachment_metadata( $job['post_id'], $job['file'] );
+				wp_update_attachment_metadata( $job['post_id'], $attach_data );
+			}
 		}
-		write_log('dos_generate_thumbnail finish after ms ' . (time() - $start));
+		write_log('dos_generate_thumbnail finish after ' . (time() - $start)) . ' seconds';
 	}
 	
 	if( !wp_next_scheduled( 'dos_gen_thumbnail_hook' ) ) {
 			wp_schedule_event( time(), 'dos_scan_schedule', 'dos_gen_thumbnail_hook' );
 		} else {
 	}
-	add_action( 'dos_scan_redis_hook', 'dos_generate_thumbnail');
+	add_action( 'dos_gen_thumbnail_hook', 'dos_generate_thumbnail');
 	
 }
 
