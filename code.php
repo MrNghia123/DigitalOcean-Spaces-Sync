@@ -648,22 +648,28 @@ function dos_add_cron_recurrence_interval( $schedules ) {
 
 add_filter( 'cron_schedules', 'dos_add_cron_recurrence_interval' );
 
-if (get_option('dos_lazy_thumbnail')==1) {
-	function dos_lazy_thumbnail_input($attachment_id, $file_path) {
-		global $redis;
+function dos_lazy_thumbnail_input($attachment_id, $file_path) {
+	global $redis;
+	if (get_option('dos_lazy_thumbnail')==1) {
 		if (get_option('dos_use_redis_queue')==1) {
 			if ($redis ==null) {
 				$redis = new Redis(); 
 				$redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
 			}
-		   $redisdata = $attachment_id . ',' . $file_path;
-		   $redis->lpush("dos_thumbnail_queue", $redisdata); 
+			$redisdata = $attachment_id . ',' . $file_path;
+			$redis->lpush("dos_thumbnail_queue", $redisdata); 
 		} else {
 			update_post_meta( $attachment_id, '_meta_required', $file_path );
 		}
+	} else {
+		$attach_data = wp_generate_attachment_metadata( $attachment_id, $file_path );
+		wp_update_attachment_metadata( $attachment_id, $attach_data );
 	}
-	
-	add_action('dos_lazy_thumbnail_input', 'dos_lazy_thumbnail_input', 10, 2);
+}
+
+add_action('dos_lazy_thumbnail_input', 'dos_lazy_thumbnail_input', 10, 2);
+if (get_option('dos_lazy_thumbnail')==1) {
+
 	
 	function dos_generate_thumbnail() {
 		global $redis;
