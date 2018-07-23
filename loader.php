@@ -12,11 +12,28 @@
 
  */
 load_plugin_textdomain('dos', false, dirname(plugin_basename(__FILE__)) . '/lang');
+register_deactivation_hook( __FILE__, 'dos_uninstall' );
 
 function dos_incompatibile($msg) {
   require_once ABSPATH . DIRECTORY_SEPARATOR . 'wp-admin' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'plugin.php';
   deactivate_plugins(__FILE__);
   wp_die($msg);
+}
+
+// function dos_install() {
+// 	update_option('dos_background_processing', 1, false);
+// }
+
+function dos_uninstall() {
+	
+	write_log('dos bye!');
+	
+	if( false !== ( $time = wp_next_scheduled( 'dos_scan_schedule' ) ) ) {
+		wp_unschedule_event( $time, 'dos_scan_schedule' );
+		write_log('unscheduled');
+	}
+	delete_option('dos_check_redis_and_upload_lock_expired');
+
 }
 
 if ( is_admin() && ( !defined('DOING_AJAX') || !DOING_AJAX ) ) {

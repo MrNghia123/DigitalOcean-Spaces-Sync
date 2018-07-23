@@ -21,5 +21,5 @@ function dos_register_settings() {
   register_setting('dos_settings', 'dos_retry_count');
   register_setting('dos_settings', 'dos_redis_queue_batch_size');
   register_setting('dos_settings', 'dos_lazy_thumbnail');
-	
+  register_setting('dos_settings', 'dos_background_processing');
 }

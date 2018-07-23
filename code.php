@@ -730,6 +730,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 	function dos_redis_queue_pop($limit = 25) {
 		global $redis;
 		if ($redis ==null) {
+			write_log('initializing redis');
 			$redis = new Redis(); 
 			$redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
 		}
@@ -775,21 +776,27 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 
 	}
 	function dos_check_redis_and_upload() {
+		write_log('dos_check_redis_and_upload entrant');        
+		$lock_expired = get_option( 'dos_check_redis_and_upload_lock_expired' );
+		if ( !$lock_expired || time() > $lock_expired) {
+			// Put the lock as a transient. Expire after 12 hours.
+			write_log('setting lock');
+			$lock_expired = time() + 12 * 3600;
+			update_option( 'dos_check_redis_and_upload_lock_expired', $lock_expired, false );
+		} else {
+			write_log('lock is in place, exit now');
+			return;
+		}
+		global $wpdb;
+		//Bypass wordpress cache
+		$query = "select option_name, option_value from $wpdb->options where option_name in ('dos_redis_queue_batch_size', 'dos_container', 'dos_storage_file_only', 'dos_retry_count',
+		'dos_check_redis_and_upload_lock_expired')";
+		
 		global $s3Client;
-		global $autoloader;
-		$dos_container = get_option('dos_container');
 		if ($s3Client==null) {
+			write_log('initializing S3');
 			$s3Client = __S3();
 		}
-		//Pop a batch from the queue
-		
-		if (get_option('dos_redis_queue_batch_size') >0) {
-			$batchSize = (int)get_option('dos_redis_queue_batch_size');
-		} else {
-			$batchSize = 25;
-		}
-// 		$autoloader = require "./vendor/autoload.php";
-// 		$loadresult = require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
 
 		if (!class_exists('Aws\CommandPool')) {
 			write_log("Class CommandPool not exists, loading now");
@@ -797,75 +804,104 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		}
 // 		$loadresult = $autoloader->findFile("Aws\CommandPool");
 // 		exit(1);
-		
-		$jobs = dos_redis_queue_pop($batchSize); 
-		$batchNumber = 0;
-		while(sizeof($jobs) > 0 && $batchNumber++ < 10) {
-			// Now create multiple commands for batching the files to S3
-			$commands = array();
-			foreach ($jobs as $entry) {
-				
-				$args = explode(',',$entry);
-				if ( is_readable($args[0])) {
-					$s3key = ltrim(dos_filepath($args[0]),'/');
-					$ext = pathinfo($args[0], PATHINFO_EXTENSION);
-					$commands[] = $s3Client->getCommand('PutObject', array(
-						'Bucket' => $dos_container,
-						'Key'    => $s3key,
-						'Body' => fopen ( $args[0], 'r' ),
-						'ACL' => 'public-read',
-						'ContentType' => "image/$ext"
-					));
-				}
+
+		while (time() < $lock_expired) {
+// 			Need to directly query options from database to by pass Wordpress cache
+			$rows=$wpdb->get_results($query);
+			$dos_redis_queue_batch_size = 25;
+			$dos_container = "";
+			$dos_storage_file_only = 0;
+			$lock_expired = 0;
+			unset($dos_retry_count);
+			foreach ($rows as $key => $row) {
+				if ($row->option_name == 'dos_redis_queue_batch_size' && $row->option_value)
+					$dos_redis_queue_batch_size = (int)$row->option_value;
+				else if ($row->option_name == 'dos_container')
+					$dos_container = $row->option_value;
+				else if ($row->option_name == 'dos_storage_file_only')
+					$dos_storage_file_only = (int) $row->option_value;
+				else if ($row->option_name == 'dos_retry_count' && $row->option_value)
+					$dos_retry_count = $row->option_value;
+				else if ($row->option_name == 'dos_check_redis_and_upload_lock_expired' )
+					$lock_expired = (int)$row->option_value;
 			}
+// 			write_log($dos_redis_queue_batch_size);
+// 			write_log($dos_container);
+// 			write_log($dos_storage_file_only);
+// 			write_log(isset($dos_retry_count)?$dos_retry_count:"dos_retry_count not set");
+			$jobs = dos_redis_queue_pop($dos_redis_queue_batch_size); 
+			$batchNumber = 0;
+			while(sizeof($jobs) > 0 && $batchNumber++ < 10) {
+				// Now create multiple commands for batching the files to S3
+				$commands = array();
+				foreach ($jobs as $entry) {
 
-			// Create a pool and provide an optional array of configuration
-			$pool = new CommandPool($s3Client, $commands, [
-				// Only send $batchSize files at a time (this is set to 25 by default)
-				'concurrency' => $batchSize,
-				// Invoke this function before executing each command
-				'before' => function (CommandInterface $cmd, $iterKey) {
-// 					write_log( "About to send {$iterKey}: "
-// 						. print_r($cmd->toArray(), true) . "\n");
-				},
-				// Invoke this function for each successful transfer
-				'fulfilled' => function (
-					ResultInterface $result,
-					$iterKey,
-					PromiseInterface $aggregatePromise
-				) use ($jobs) {
-					$args = explode(',',$jobs[$iterKey]);
-					$pathToFile = $args[0];
-// 					write_log("Completed {$iterKey}: {$result} {$pathToFile}");
-					if (get_option('dos_storage_file_only') == 1) {
-						dos_file_delete($pathToFile);
+					$args = explode(',',$entry);
+					if ( is_readable($args[0])) {
+						$s3key = ltrim(dos_filepath($args[0]),'/');
+						$ext = pathinfo($args[0], PATHINFO_EXTENSION);
+						$commands[] = $s3Client->getCommand('PutObject', array(
+							'Bucket' => $dos_container,
+							'Key'    => $s3key,
+							'Body' => fopen ( $args[0], 'r' ),
+							'ACL' => 'public-read',
+							'ContentType' => "image/$ext"
+						));
 					}
-				},
-				// Invoke this function for each failed transfer
-				'rejected' => function (
-					AwsException $reason,
-					$iterKey,
-					PromiseInterface $aggregatePromise
-				) use ($jobs) {
-					$args = explode(',',$jobs[$iterKey]);
-					$attempt = (int)$args[1];
-					$pathToFile = $args[0];
-					write_log("Failed to upload {$pathToFile}: {$reason}");
-					$del = $args[2];
-					if ( !get_option('dos_retry_count') ||  $attempt < get_option('dos_retry_count') ) {
-						dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
-					}
-				},
-			]);
+				}
 
-			// Initiate the pool transfers
-			$promise = $pool->promise();
+				// Create a pool and provide an optional array of configuration
+				$pool = new CommandPool($s3Client, $commands, [
+					// Only send $dos_redis_queue_batch_size files at a time (this is set to 25 by default)
+					'concurrency' => $dos_redis_queue_batch_size,
+					// Invoke this function before executing each command
+					'before' => function (CommandInterface $cmd, $iterKey) {
+	// 					write_log( "About to send {$iterKey}: "
+	// 						. print_r($cmd->toArray(), true) . "\n");
+					},
+					// Invoke this function for each successful transfer
+					'fulfilled' => function (
+						ResultInterface $result,
+						$iterKey,
+						PromiseInterface $aggregatePromise
+					) use ($jobs) {
+						$args = explode(',',$jobs[$iterKey]);
+						$pathToFile = $args[0];
+	// 					write_log("Completed {$iterKey}: {$result} {$pathToFile}");
+						if ($dos_storage_file_only == 1) {
+							dos_file_delete($pathToFile);
+						}
+					},
+					// Invoke this function for each failed transfer
+					'rejected' => function (
+						AwsException $reason,
+						$iterKey,
+						PromiseInterface $aggregatePromise
+					) use ($jobs) {
+						$args = explode(',',$jobs[$iterKey]);
+						$attempt = (int)$args[1];
+						$pathToFile = $args[0];
+						write_log("Failed to upload {$pathToFile}: {$reason}");
+						$del = $args[2];
+						if ( !$dos_retry_count ||  $attempt < $dos_retry_count ) {
+							dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
+						}
+					},
+				]);
 
-			// Force the pool to complete synchronously
-			$promise->wait();
-// 						
-			$jobs = dos_redis_queue_pop($batchSize); 
+				// Initiate the pool transfers
+				$promise = $pool->promise();
+
+				// Force the pool to complete synchronously
+				$promise->wait();
+	// 						
+				$jobs = dos_redis_queue_pop($dos_redis_queue_batch_size); 
+			}
+			write_log('going to sleep for one minute');        
+			sleep(60);
 		}
+		write_log('dos_check_redis_and_upload EXIT');        
+
 	}
 
 	if( !wp_next_scheduled( 'dos_scan_redis_hook' ) ) {
