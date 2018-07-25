@@ -478,42 +478,41 @@ function dos_thumbnail_upload ($metadata) {
   }
 
   // process paths
-  foreach ($paths as $filepath) {
     
     if ( get_option('dos_lazy_upload') ) {
 
- 		if ( get_option('dos_use_redis_queue') == 1) {
-			dos_redis_queue_push($filepath, 0, true, 2);
-// 			if ($redis == null) {
-// 				$redis = new Redis(); 
-// 			   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
-// 	// 			write_log('Pushed to Redis: ' . $filepath);
-// 			}
-// 		   //store data in redis list 
-// 		   $redisdata = $filepath . ',0,1';
-// 		   $redis->lpush("dos_upload_queue", $redisdata); 
-		} else {
-	      wp_schedule_single_event(time() + 2, 'dos_schedule_upload', array($filepath, 0, true));
-// 			write_log('Scheduled by wp cron: ' . $filepath);
-			
-		}
-		
+	  foreach ($paths as $filepath) {
+			if ( get_option('dos_use_redis_queue') == 1) {
+				dos_redis_queue_push($filepath, 0, true, 2);
+	// 			if ($redis == null) {
+	// 				$redis = new Redis(); 
+	// 			   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
+	// 	// 			write_log('Pushed to Redis: ' . $filepath);
+	// 			}
+	// 		   //store data in redis list 
+	// 		   $redisdata = $filepath . ',0,1';
+	// 		   $redis->lpush("dos_upload_queue", $redisdata); 
+			} else {
+			  wp_schedule_single_event(time() + 2, 'dos_schedule_upload', array($filepath, 0, true));
+	// 			write_log('Scheduled by wp cron: ' . $filepath);
 
-      if (get_option('dos_debug') == 1 and isset($log)) {
-        $log->info("Add schedule. File - " . $filepath);
-      }
+			}
+
+		  if (get_option('dos_debug') == 1 and isset($log)) {
+			$log->info("Add schedule. File - " . $filepath);
+		  }
+		}
 
     } else {
 
       // upload file
-      dos_file_upload($filepath, 0, true);
+      dos_bulk_file_upload($paths);
 
       // log data
       if ( get_option('dos_debug') ) {
         $log->info("Uploaded file - " . $filepath);
       }
 
-    }
 
   }
 
@@ -717,6 +716,91 @@ if (get_option('dos_lazy_thumbnail')==1) {
 	
 }
 
+function dos_bulk_file_upload($file_array) {
+
+	global $s3Client;
+	if ($s3Client==null) {
+		$s3Client = __S3();
+	}
+
+    $dos_container = get_option('dos_container');
+	if (!class_exists('Aws\CommandPool')) {
+		write_log("Class CommandPool not exists, loading now");
+		$autoloader->loadClass("Aws\CommandPool");
+	}
+	// 		$loadresult = $autoloader->findFile("Aws\CommandPool");
+	// 		exit(1);
+
+	$commands = array();
+
+	foreach($file_array as $file) {
+		// Now create multiple commands for batching the files to S3
+		if ( is_readable($file)) {
+			$s3key = ltrim(dos_filepath($file),'/');
+			$ext = pathinfo($file, PATHINFO_EXTENSION);
+			$commands[] = $s3Client->getCommand('PutObject', array(
+				'Bucket' => $dos_container,
+				'Key'    => $s3key,
+				'Body' => fopen ( $file, 'r' ),
+				'ACL' => 'public-read',
+				'ContentType' => "image/$ext"
+			));
+		}
+	}
+	// Create a pool and provide an optional array of configuration
+	$pool = new CommandPool($s3Client, $commands, [
+		// Only send $dos_redis_queue_batch_size files at a time (this is set to 25 by default)
+		'concurrency' => sizeof($file_array),
+		'fulfilled' => function (
+			ResultInterface $result,
+			$iterKey,
+			PromiseInterface $aggregatePromise
+		) use ($file_array) {
+			$pathToFile = $file_array[$iterKey];
+			// 					write_log("Completed {$iterKey}: {$result} {$pathToFile}");
+			write_log("Delete file {$pathToFile}");
+			dos_file_delete($pathToFile);
+		},
+		// Invoke this function for each failed transfer
+		'rejected' => function (
+			AwsException $reason,
+			$iterKey,
+			PromiseInterface $aggregatePromise
+		) use ($file_array) {
+			write_log("Failed to upload {$file_array[$iterKey]}: {$reason}");
+		},
+	]);
+
+	// Initiate the pool transfers
+	$promise = $pool->promise();
+
+	// Force the pool to complete synchronously
+	$promise->wait();
+	// 						
+
+}
+	
+function __S3 () {
+
+
+	$dos_key = get_option('dos_key');
+	$dos_secret = get_option('dos_secret');
+	$dos_endpoint = get_option('dos_endpoint');
+
+	$client = S3Client::factory([
+		'credentials' => [
+			'key'    => $dos_key,
+			'secret' => $dos_secret,
+		],
+		'endpoint' => $dos_endpoint,
+		'region' => '',
+		'version' => 'latest',
+	]);
+
+	return $client;
+
+}
+
 if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1) {
 	function dos_redis_queue_push($pathToFile, $attempt = 0, $del = false, $delay = 0) {
 		global $redis;
@@ -754,26 +838,6 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 // 			return false;
 // 		$args = explode(',',$redisdata);
 // 		return array($args[0],(int)$args[1],$args[2]);		
-	}
-	function __S3 () {
-
-
-		$dos_key = get_option('dos_key');
-		$dos_secret = get_option('dos_secret');
-		$dos_endpoint = get_option('dos_endpoint');
-
-	  $client = S3Client::factory([
-		'credentials' => [
-		  'key'    => $dos_key,
-		  'secret' => $dos_secret,
-		],
-		'endpoint' => $dos_endpoint,
-		'region' => '',
-		'version' => 'latest',
-	  ]);
-
-	  return $client;
-
 	}
 	function dos_check_redis_and_upload() {
 		write_log('dos_check_redis_and_upload entrant');        
