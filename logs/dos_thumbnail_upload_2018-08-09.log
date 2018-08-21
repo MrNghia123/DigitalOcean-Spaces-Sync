@@ -1,0 +1,727 @@
+[2018-08-09 3:59:32.884912] [debug] Metadata dump:
+Array
+(
+    [width] => 266
+    [height] => 267
+    [file] => 2018/08/08-1-4993155f36cb4348.jpg
+    [sizes] => Array
+        (
+            [woocommerce_gallery_thumbnail] => Array
+                (
+                    [file] => 08-1-4993155f36cb4348-100x100.jpg
+                    [width] => 100
+                    [height] => 100
+                    [mime-type] => image/jpeg
+                )
+
+            [shop_thumbnail] => Array
+                (
+                    [file] => 08-1-4993155f36cb4348-100x100.jpg
+                    [width] => 100
+                    [height] => 100
+                    [mime-type] => image/jpeg
+                )
+
+        )
+
+    [image_meta] => Array
+        (
+            [aperture] => 0
+            [credit] => 
+            [camera] => 
+            [caption] => 
+            [created_timestamp] => 0
+            [copyright] => 
+            [focal_length] => 0
+            [iso] => 0
+            [shutter_speed] => 0
+            [title] => 
+            [orientation] => 0
+            [keywords] => Array
+                (
+                )
+
+        )
+
+)
+
+[2018-08-09 4:13:11.675775] [debug] Metadata dump:
+Array
+(
+    [width] => 266
+    [height] => 267
+    [file] => 2018/08/08-1-1e0fa8d59d062291.jpg
+    [sizes] => Array
+        (
+            [woocommerce_gallery_thumbnail] => Array
+                (
+                    [file] => 08-1-1e0fa8d59d062291-100x100.jpg
+                    [width] => 100
+                    [height] => 100
+                    [mime-type] => image/jpeg
+                )
+
+            [shop_thumbnail] => Array
+                (
+                    [file] => 08-1-1e0fa8d59d062291-100x100.jpg
+                    [width] => 100
+                    [height] => 100
+                    [mime-type] => image/jpeg
+                )
+
+        )
+
+    [image_meta] => Array
+        (
+            [aperture] => 0
+            [credit] => 
+            [camera] => 
+            [caption] => 
+            [created_timestamp] => 0
+            [copyright] => 
+            [focal_length] => 0
+            [iso] => 0
+            [shutter_speed] => 0
+            [title] => 
+            [orientation] => 0
+            [keywords] => Array
+                (
+                )
+
+        )
+
+)
+
+[2018-08-09 4:13:40.115813] [debug] Metadata dump:
+Array
+(
+    [width] => 266
+    [height] => 267
+    [file] => 2018/08/08-1-8568f1c8c15b2451.jpg
+    [sizes] => Array
+        (
+            [woocommerce_gallery_thumbnail] => Array
+                (
+                    [file] => 08-1-8568f1c8c15b2451-100x100.jpg
+                    [width] => 100
+                    [height] => 100
+                    [mime-type] => image/jpeg
+                )
+
+            [shop_thumbnail] => Array
+                (
+                    [file] => 08-1-8568f1c8c15b2451-100x100.jpg
+                    [width] => 100
+                    [height] => 100
+                    [mime-type] => image/jpeg
+                )
+
+        )
+
+    [image_meta] => Array
+        (
+            [aperture] => 0
+            [credit] => 
+            [camera] => 
+            [caption] => 
+            [created_timestamp] => 0
+            [copyright] => 
+            [focal_length] => 0
+            [iso] => 0
+            [shutter_speed] => 0
+            [title] => 
+            [orientation] => 0
+            [keywords] => Array
+                (
+                )
+
+        )
+
+)
+
+[2018-08-09 4:13:40.120533] [info] Add schedule. File - /Applications/MAMP/htdocs/wordpress_dev/wp-content/uploads/2018/08/08-1-8568f1c8c15b2451.jpg
+[2018-08-09 4:13:40.120815] [info] Add schedule. File - /Applications/MAMP/htdocs/wordpress_dev/wp-content/uploads/2018/08/08-1-8568f1c8c15b2451-100x100.jpg
+[2018-08-09 4:13:40.120990] [info] Add schedule. File - /Applications/MAMP/htdocs/wordpress_dev/wp-content/uploads/2018/08/08-1-8568f1c8c15b2451-100x100.jpg
+[2018-08-09 4:13:40.121222] [debug] Schedules dump: Array
+(
+    [1533787959] => Array
+        (
+            [dos_scan_redis_hook] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => dos_scan_schedule
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 60
+                        )
+
+                )
+
+        )
+
+    [1533787986] => Array
+        (
+            [autofeed_product] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => tcf_feed_schedule
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 30
+                        )
+
+                )
+
+        )
+
+    [1533788019] => Array
+        (
+            [dos_gen_thumbnail_hook] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => dos_scan_schedule
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 60
+                        )
+
+                )
+
+        )
+
+    [1533790392] => Array
+        (
+            [wp_privacy_delete_old_export_files] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => hourly
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 3600
+                        )
+
+                )
+
+        )
+
+    [1533790460] => Array
+        (
+            [woocommerce_cancel_unpaid_orders] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => 
+                            [args] => Array
+                                (
+                                )
+
+                        )
+
+                )
+
+        )
+
+    [1533799775] => Array
+        (
+            [wp_scheduled_auto_draft_delete] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+        )
+
+    [1533810671] => Array
+        (
+            [wp_version_check] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => twicedaily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 43200
+                        )
+
+                )
+
+            [wp_update_plugins] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => twicedaily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 43200
+                        )
+
+                )
+
+            [wp_update_themes] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => twicedaily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 43200
+                        )
+
+                )
+
+        )
+
+    [1533810759] => Array
+        (
+            [wp_scheduled_delete] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+            [delete_expired_transients] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+        )
+
+    [1533810944] => Array
+        (
+            [woocommerce_tracker_send_event] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+            [woocommerce_cleanup_sessions] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => twicedaily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 43200
+                        )
+
+                )
+
+        )
+
+    [1533859200] => Array
+        (
+            [woocommerce_scheduled_sales] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+        )
+
+    [1535673600] => Array
+        (
+            [woocommerce_geoip_updater] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => monthly
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 2635200
+                        )
+
+                )
+
+        )
+
+)
+
+[2018-08-09 4:15:33.284549] [debug] Metadata dump:
+Array
+(
+    [width] => 400
+    [height] => 300
+    [file] => 2018/08/05-1-9877dfab324dceb9.jpg
+    [sizes] => Array
+        (
+            [thumbnail] => Array
+                (
+                    [file] => 05-1-9877dfab324dceb9-280x280.jpg
+                    [width] => 280
+                    [height] => 280
+                    [mime-type] => image/jpeg
+                )
+
+            [woocommerce_thumbnail] => Array
+                (
+                    [file] => 05-1-9877dfab324dceb9-300x300.jpg
+                    [width] => 300
+                    [height] => 300
+                    [mime-type] => image/jpeg
+                    [uncropped] => 1
+                )
+
+            [woocommerce_gallery_thumbnail] => Array
+                (
+                    [file] => 05-1-9877dfab324dceb9-100x100.jpg
+                    [width] => 100
+                    [height] => 100
+                    [mime-type] => image/jpeg
+                )
+
+            [shop_catalog] => Array
+                (
+                    [file] => 05-1-9877dfab324dceb9-300x300.jpg
+                    [width] => 300
+                    [height] => 300
+                    [mime-type] => image/jpeg
+                )
+
+            [shop_thumbnail] => Array
+                (
+                    [file] => 05-1-9877dfab324dceb9-100x100.jpg
+                    [width] => 100
+                    [height] => 100
+                    [mime-type] => image/jpeg
+                )
+
+        )
+
+    [image_meta] => Array
+        (
+            [aperture] => 0
+            [credit] => 
+            [camera] => 
+            [caption] => 
+            [created_timestamp] => 0
+            [copyright] => 
+            [focal_length] => 0
+            [iso] => 0
+            [shutter_speed] => 0
+            [title] => 
+            [orientation] => 0
+            [keywords] => Array
+                (
+                )
+
+        )
+
+)
+
+[2018-08-09 4:15:37.773530] [info] Uploaded file - 
+[2018-08-09 4:15:37.774004] [debug] Schedules dump: Array
+(
+    [1533788136] => Array
+        (
+            [autofeed_product] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => tcf_feed_schedule
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 30
+                        )
+
+                )
+
+        )
+
+    [1533788139] => Array
+        (
+            [dos_scan_redis_hook] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => dos_scan_schedule
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 60
+                        )
+
+                )
+
+            [dos_gen_thumbnail_hook] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => dos_scan_schedule
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 60
+                        )
+
+                )
+
+        )
+
+    [1533790392] => Array
+        (
+            [wp_privacy_delete_old_export_files] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => hourly
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 3600
+                        )
+
+                )
+
+        )
+
+    [1533790460] => Array
+        (
+            [woocommerce_cancel_unpaid_orders] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => 
+                            [args] => Array
+                                (
+                                )
+
+                        )
+
+                )
+
+        )
+
+    [1533799775] => Array
+        (
+            [wp_scheduled_auto_draft_delete] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+        )
+
+    [1533810671] => Array
+        (
+            [wp_version_check] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => twicedaily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 43200
+                        )
+
+                )
+
+            [wp_update_plugins] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => twicedaily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 43200
+                        )
+
+                )
+
+            [wp_update_themes] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => twicedaily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 43200
+                        )
+
+                )
+
+        )
+
+    [1533810759] => Array
+        (
+            [wp_scheduled_delete] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+            [delete_expired_transients] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+        )
+
+    [1533810944] => Array
+        (
+            [woocommerce_tracker_send_event] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+            [woocommerce_cleanup_sessions] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => twicedaily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 43200
+                        )
+
+                )
+
+        )
+
+    [1533859200] => Array
+        (
+            [woocommerce_scheduled_sales] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => daily
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 86400
+                        )
+
+                )
+
+        )
+
+    [1535673600] => Array
+        (
+            [woocommerce_geoip_updater] => Array
+                (
+                    [40cd750bba9870f18aada2478b24840a] => Array
+                        (
+                            [schedule] => monthly
+                            [args] => Array
+                                (
+                                )
+
+                            [interval] => 2635200
+                        )
+
+                )
+
+        )
+
+)
+

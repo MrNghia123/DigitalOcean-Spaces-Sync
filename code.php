@@ -623,7 +623,7 @@ if (get_option('dos_storage_file_only') == 1) {
         return bin2hex(openssl_random_pseudo_bytes(8));
     }
     function dos_unique_file_name($filename, $filename_raw) {
-        $elements = explode('.', $filename_raw);
+        $elements = explode('.', $filename);
         $size = sizeof($elements);
         if ($size>1) {
             $elements[$size-2] = $elements[$size-2] . '-' . get_random_string();
