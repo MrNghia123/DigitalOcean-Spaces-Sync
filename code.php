@@ -6,7 +6,7 @@ use Aws\CommandInterface;
 use Aws\ResultInterface;
 use GuzzleHttp\Promise\PromiseInterface;
 use Aws\AwsException;
-
+use Aws\S3\Exception\S3Exception;
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\AwsS3v3\AwsS3Adapter;
 use League\Flysystem\Filesystem;
@@ -763,7 +763,7 @@ function dos_bulk_file_upload($file_array) {
 		},
 		// Invoke this function for each failed transfer
 		'rejected' => function (
-			AwsException $reason,
+			Aws\S3\Exception\S3Exception $reason,
 			$iterKey,
 			PromiseInterface $aggregatePromise
 		) use ($file_array) {
@@ -786,8 +786,12 @@ function __S3 () {
 	$dos_key = get_option('dos_key');
 	$dos_secret = get_option('dos_secret');
 	$dos_endpoint = get_option('dos_endpoint');
-
-	$client = S3Client::factory([
+// 	$s3 = new Aws\S3\S3Client([
+// 		'version' => '2006-03-01',
+// 		'region'  => 'us-west-2',
+// 		'scheme'  => 'http'
+// 	]);
+	$client = new Aws\S3\S3Client([
 		'credentials' => [
 			'key'    => $dos_key,
 			'secret' => $dos_secret,
@@ -795,6 +799,11 @@ function __S3 () {
 		'endpoint' => $dos_endpoint,
 		'region' => '',
 		'version' => 'latest',
+		'retries' => 10,
+		'http'    => [
+        	'connect_timeout' => 5,
+        	'timeout' => 30,
+	    ]
 	]);
 
 	return $client;
@@ -811,7 +820,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		$new_entry = $pathToFile . ',' . $attempt . ',' . ($del?"1":"0");
 		$redis->zadd('dos_delayed_queue', time() + $delay, $new_entry);
 	}
-	function dos_redis_queue_pop($limit = 25) {
+	function dos_redis_queue_pop() {
 		global $redis;
 		if ($redis ==null) {
 			write_log('initializing redis');
@@ -821,7 +830,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		$redis->watch("dos_delayed_queue");
 // 		$results = $redis->zRangeByScore('dos_delayed_queue', 0, time(), array('limit' => array(0, 1)); /* array('val2') */
 
-		$results = $redis->zRangeByScore('dos_delayed_queue', 0, time(), array('limit' => array(0, (int)$limit)));
+		$results = $redis->zRangeByScore('dos_delayed_queue', 0, time());
 		write_log('Upload ' .  sizeof($results) . ' files');
 		$redis->multi();
 		if ($results) {
@@ -839,18 +848,137 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 // 		$args = explode(',',$redisdata);
 // 		return array($args[0],(int)$args[1],$args[2]);		
 	}
+// 	function dos_check_redis_and_upload() {
+// 		write_log('dos_check_redis_and_upload entrant');        
+// 		$lock_expired = get_option( 'dos_check_redis_and_upload_lock_expired' );
+// 		if ( !$lock_expired || time() > $lock_expired) {
+// 			// Put the lock as a transient. Expire after 12 hours.
+// 			write_log('setting lock');
+// 			$lock_expired = time() + 12 * 3600;
+// 			update_option( 'dos_check_redis_and_upload_lock_expired', $lock_expired, false );
+// 		} else {
+// 			write_log('lock is in place, exit now');
+// 			return;
+// 		}
+// 		global $wpdb;
+// 		//Bypass wordpress cache
+// 		$query = "select option_name, option_value from $wpdb->options where option_name in ('dos_redis_queue_batch_size', 'dos_container', 'dos_storage_file_only', 'dos_retry_count',
+// 		'dos_check_redis_and_upload_lock_expired')";
+		
+// 		global $s3Client;
+// 		if ($s3Client==null) {
+// 			write_log('initializing S3');
+// 			$s3Client = __S3();
+// 		}
+
+// 		if (!class_exists('Aws\CommandPool')) {
+// 			write_log("Class CommandPool not exists, loading now");
+// 			$autoloader->loadClass("Aws\CommandPool");
+// 		}
+// // 		$loadresult = $autoloader->findFile("Aws\CommandPool");
+// // 		exit(1);
+
+// 		while (time() < $lock_expired) {
+// // 			Need to directly query options from database to by pass Wordpress cache
+// 			$rows=$wpdb->get_results($query);
+// 			$dos_redis_queue_batch_size = 25;
+// 			$dos_container = "";
+// 			$dos_storage_file_only = 0;
+// 			$lock_expired = 0;
+// 			unset($dos_retry_count);
+// 			foreach ($rows as $key => $row) {
+// 				if ($row->option_name == 'dos_redis_queue_batch_size' && $row->option_value)
+// 					$dos_redis_queue_batch_size = (int)$row->option_value;
+// 				else if ($row->option_name == 'dos_container')
+// 					$dos_container = $row->option_value;
+// 				else if ($row->option_name == 'dos_storage_file_only')
+// 					$dos_storage_file_only = (int) $row->option_value;
+// 				else if ($row->option_name == 'dos_retry_count' && $row->option_value)
+// 					$dos_retry_count = $row->option_value;
+// 				else if ($row->option_name == 'dos_check_redis_and_upload_lock_expired' )
+// 					$lock_expired = (int)$row->option_value;
+// 			}
+// // 			write_log($dos_redis_queue_batch_size);
+// // 			write_log($dos_container);
+// // 			write_log($dos_storage_file_only);
+// // 			write_log(isset($dos_retry_count)?$dos_retry_count:"dos_retry_count not set");
+// 			$jobs = dos_redis_queue_pop($dos_redis_queue_batch_size); 
+// 			$batchNumber = 0;
+// 			while(sizeof($jobs) > 0 && $batchNumber++ < 10) {
+// 				// Now create multiple commands for batching the files to S3
+// 				$commands = array();
+// 				foreach ($jobs as $entry) {
+
+// 					$args = explode(',',$entry);
+// 					if ( is_readable($args[0])) {
+// 						$s3key = ltrim(dos_filepath($args[0]),'/');
+// 						$ext = pathinfo($args[0], PATHINFO_EXTENSION);
+// 						$commands[] = $s3Client->getCommand('PutObject', array(
+// 							'Bucket' => $dos_container,
+// 							'Key'    => $s3key,
+// 							'Body' => fopen ( $args[0], 'r' ),
+// 							'ACL' => 'public-read',
+// 							'ContentType' => "image/$ext"
+// 						));
+// 					}
+// 				}
+
+// 				// Create a pool and provide an optional array of configuration
+// 				$pool = new CommandPool($s3Client, $commands, [
+// 					// Only send $dos_redis_queue_batch_size files at a time (this is set to 25 by default)
+// 					'concurrency' => $dos_redis_queue_batch_size,
+// 					// Invoke this function before executing each command
+// 					'before' => function (CommandInterface $cmd, $iterKey) {
+// 	// 					write_log( "About to send {$iterKey}: "
+// 	// 						. print_r($cmd->toArray(), true) . "\n");
+// 					},
+// 					// Invoke this function for each successful transfer
+// 					'fulfilled' => function (
+// 						ResultInterface $result,
+// 						$iterKey,
+// 						PromiseInterface $aggregatePromise
+// 					) use ($jobs, $dos_storage_file_only) {
+// 						$args = explode(',',$jobs[$iterKey]);
+// 						$pathToFile = $args[0];
+// 	// 					write_log("Completed {$iterKey}: {$result} {$pathToFile}");
+// 						if ($dos_storage_file_only == 1) {
+// 							dos_file_delete($pathToFile);
+// 						}
+// 					},
+// 					// Invoke this function for each failed transfer
+// 					'rejected' => function (
+// 						AwsException $reason,
+// 						$iterKey,
+// 						PromiseInterface $aggregatePromise
+// 					) use ($jobs) {
+// 						$args = explode(',',$jobs[$iterKey]);
+// 						$attempt = (int)$args[1];
+// 						$pathToFile = $args[0];
+// 						write_log("Failed to upload {$pathToFile}: {$reason}");
+// 						$del = $args[2];
+// 						if ( !$dos_retry_count ||  $attempt < $dos_retry_count ) {
+// 							dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
+// 						}
+// 					},
+// 				]);
+
+// 				// Initiate the pool transfers
+// 				$promise = $pool->promise();
+
+// 				// Force the pool to complete synchronously
+// 				$promise->wait();
+// 	// 						
+// 				$jobs = dos_redis_queue_pop($dos_redis_queue_batch_size); 
+// 			}
+// 			write_log('going to sleep for one minute');        
+// 			sleep(60);
+// 		}
+// 		write_log('dos_check_redis_and_upload EXIT');        
+
+// 	}
+
 	function dos_check_redis_and_upload() {
 		write_log('dos_check_redis_and_upload entrant');        
-		$lock_expired = get_option( 'dos_check_redis_and_upload_lock_expired' );
-		if ( !$lock_expired || time() > $lock_expired) {
-			// Put the lock as a transient. Expire after 12 hours.
-			write_log('setting lock');
-			$lock_expired = time() + 12 * 3600;
-			update_option( 'dos_check_redis_and_upload_lock_expired', $lock_expired, false );
-		} else {
-			write_log('lock is in place, exit now');
-			return;
-		}
 		global $wpdb;
 		//Bypass wordpress cache
 		$query = "select option_name, option_value from $wpdb->options where option_name in ('dos_redis_queue_batch_size', 'dos_container', 'dos_storage_file_only', 'dos_retry_count',
@@ -866,108 +994,77 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 			write_log("Class CommandPool not exists, loading now");
 			$autoloader->loadClass("Aws\CommandPool");
 		}
-// 		$loadresult = $autoloader->findFile("Aws\CommandPool");
-// 		exit(1);
 
-		while (time() < $lock_expired) {
-// 			Need to directly query options from database to by pass Wordpress cache
-			$rows=$wpdb->get_results($query);
-			$dos_redis_queue_batch_size = 25;
-			$dos_container = "";
-			$dos_storage_file_only = 0;
-			$lock_expired = 0;
-			unset($dos_retry_count);
-			foreach ($rows as $key => $row) {
-				if ($row->option_name == 'dos_redis_queue_batch_size' && $row->option_value)
-					$dos_redis_queue_batch_size = (int)$row->option_value;
-				else if ($row->option_name == 'dos_container')
-					$dos_container = $row->option_value;
-				else if ($row->option_name == 'dos_storage_file_only')
-					$dos_storage_file_only = (int) $row->option_value;
-				else if ($row->option_name == 'dos_retry_count' && $row->option_value)
-					$dos_retry_count = $row->option_value;
-				else if ($row->option_name == 'dos_check_redis_and_upload_lock_expired' )
-					$lock_expired = (int)$row->option_value;
+		$dos_redis_queue_batch_size =  get_option('dos_redis_queue_batch_size',25);
+		$dos_container = get_option('dos_container');
+		$dos_storage_file_only = get_option('dos_storage_file_only');
+		$dos_retry_count = get_option('dos_retry_count');
+		$jobs = dos_redis_queue_pop(); 
+		$commands = array();
+		foreach ($jobs as $entry) {
+			$args = explode(',',$entry);
+			if ( is_readable($args[0])) {
+				$s3key = ltrim(dos_filepath($args[0]),'/');
+				$ext = pathinfo($args[0], PATHINFO_EXTENSION);
+				$commands[] = $s3Client->getCommand('PutObject', array(
+					'Bucket' => $dos_container,
+					'Key'    => $s3key,
+					'Body' => fopen ( $args[0], 'r' ),
+					'ACL' => 'public-read',
+					'ContentType' => "image/$ext"
+				));
 			}
-// 			write_log($dos_redis_queue_batch_size);
-// 			write_log($dos_container);
-// 			write_log($dos_storage_file_only);
-// 			write_log(isset($dos_retry_count)?$dos_retry_count:"dos_retry_count not set");
-			$jobs = dos_redis_queue_pop($dos_redis_queue_batch_size); 
-			$batchNumber = 0;
-			while(sizeof($jobs) > 0 && $batchNumber++ < 10) {
-				// Now create multiple commands for batching the files to S3
-				$commands = array();
-				foreach ($jobs as $entry) {
-
-					$args = explode(',',$entry);
-					if ( is_readable($args[0])) {
-						$s3key = ltrim(dos_filepath($args[0]),'/');
-						$ext = pathinfo($args[0], PATHINFO_EXTENSION);
-						$commands[] = $s3Client->getCommand('PutObject', array(
-							'Bucket' => $dos_container,
-							'Key'    => $s3key,
-							'Body' => fopen ( $args[0], 'r' ),
-							'ACL' => 'public-read',
-							'ContentType' => "image/$ext"
-						));
-					}
-				}
-
-				// Create a pool and provide an optional array of configuration
-				$pool = new CommandPool($s3Client, $commands, [
-					// Only send $dos_redis_queue_batch_size files at a time (this is set to 25 by default)
-					'concurrency' => $dos_redis_queue_batch_size,
-					// Invoke this function before executing each command
-					'before' => function (CommandInterface $cmd, $iterKey) {
-	// 					write_log( "About to send {$iterKey}: "
-	// 						. print_r($cmd->toArray(), true) . "\n");
-					},
-					// Invoke this function for each successful transfer
-					'fulfilled' => function (
-						ResultInterface $result,
-						$iterKey,
-						PromiseInterface $aggregatePromise
-					) use ($jobs) {
-						$args = explode(',',$jobs[$iterKey]);
-						$pathToFile = $args[0];
-	// 					write_log("Completed {$iterKey}: {$result} {$pathToFile}");
-						if ($dos_storage_file_only == 1) {
-							dos_file_delete($pathToFile);
-						}
-					},
-					// Invoke this function for each failed transfer
-					'rejected' => function (
-						AwsException $reason,
-						$iterKey,
-						PromiseInterface $aggregatePromise
-					) use ($jobs) {
-						$args = explode(',',$jobs[$iterKey]);
-						$attempt = (int)$args[1];
-						$pathToFile = $args[0];
-						write_log("Failed to upload {$pathToFile}: {$reason}");
-						$del = $args[2];
-						if ( !$dos_retry_count ||  $attempt < $dos_retry_count ) {
-							dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
-						}
-					},
-				]);
-
-				// Initiate the pool transfers
-				$promise = $pool->promise();
-
-				// Force the pool to complete synchronously
-				$promise->wait();
-	// 						
-				$jobs = dos_redis_queue_pop($dos_redis_queue_batch_size); 
-			}
-			write_log('going to sleep for one minute');        
-			sleep(60);
 		}
+
+		// Create a pool and provide an optional array of configuration
+		$pool = new CommandPool($s3Client, $commands, [
+			// Only send $dos_redis_queue_batch_size files at a time (this is set to 25 by default)
+			'concurrency' => $dos_redis_queue_batch_size,
+			// Invoke this function before executing each command
+			'before' => function (CommandInterface $cmd, $iterKey) {
+				// 					write_log( "About to send {$iterKey}: "
+				// 						. print_r($cmd->toArray(), true) . "\n");
+			},
+			// Invoke this function for each successful transfer
+			'fulfilled' => function (
+				ResultInterface $result,
+				$iterKey,
+				PromiseInterface $aggregatePromise
+			) use ($jobs, $dos_storage_file_only) {
+				$args = explode(',',$jobs[$iterKey]);
+				$pathToFile = $args[0];
+// 				write_log("Completed {$iterKey}: {$result} {$pathToFile}");
+				if ($dos_storage_file_only == 1) {
+					dos_file_delete($pathToFile);
+					
+				}
+			},
+			// Invoke this function for each failed transfer
+			'rejected' => function (
+				Aws\S3\Exception\S3Exception $reason,
+				$iterKey,
+				PromiseInterface $aggregatePromise
+			) use ($jobs) {
+				$args = explode(',',$jobs[$iterKey]);
+				$attempt = (int)$args[1];
+				$pathToFile = $args[0];
+				write_log("Failed to upload {$pathToFile}: {$reason}");
+				$del = $args[2];
+				if ( !$dos_retry_count ||  $attempt < $dos_retry_count ) {
+					dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
+				}
+			},
+		]);
+
+		// Initiate the pool transfers
+		$promise = $pool->promise();
+
+		// Force the pool to complete synchronously
+		$promise->wait();
+		// 						
 		write_log('dos_check_redis_and_upload EXIT');        
 
 	}
-
 	if( !wp_next_scheduled( 'dos_scan_redis_hook' ) ) {
 			wp_schedule_event( time(), 'dos_scan_schedule', 'dos_scan_redis_hook' );
 		} else {
