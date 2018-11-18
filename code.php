@@ -1062,7 +1062,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		// Force the pool to complete synchronously
 		$promise->wait();
 		// 						
-		write_log('dos_check_redis_and_upload EXIT');        
+		write_log('dos_check_redis_and_upload exit');        
 
 	}
 	if( !wp_next_scheduled( 'dos_scan_redis_hook' ) ) {
