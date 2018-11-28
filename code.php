@@ -432,25 +432,12 @@ function dos_storage_delete ($file) {
   }
 
 }
-function dos_builder_get_upload_dir( $dir_info ) {
-// 	write_log($dir_info);
-	$elements = explode('/', $dir_info['url']); 
-	$dir_name = $elements[sizeof($elements) - 2];
-    $dir_info['url'] = get_option('siteurl') . "/wp-content/uploads/$dir_name/";
-    return $dir_info;
-}
-add_filter( 'fl_builder_get_upload_dir', 'dos_builder_get_upload_dir' );
-
 function dos_astra_script_src($src, $handle) {
-	if ($handle == 'astra-addon-js')
-		write_log("Script source: $src");
-	return $src;
+	return str_replace(get_option('upload_url_path'),get_option('siteurl') . '/wp-content/uploads', $src);
 }
 
 function dos_astra_style_src($src, $handle) {
-	if ($handle == 'astra-addon-css')
-		write_log("style source: $src");
-	return $src;
+	return str_replace(get_option('upload_url_path'),get_option('siteurl') . '/wp-content/uploads', $src);
 }
 
 add_action('style_loader_src', 'dos_astra_style_src', 10, 2);
