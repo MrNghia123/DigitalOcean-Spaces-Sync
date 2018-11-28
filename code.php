@@ -346,55 +346,59 @@ function dos_file_delete ($file, $attempt = 0) {
  * @param int $postID Id upload file
  * @return bool
  */
-function dos_storage_upload ($postID) {
+function dos_storage_upload ($fileinfo, $var) {
 	global $redis;
-  if ( wp_attachment_is_image($postID) == false ) {
-
-    $file = get_attached_file($postID);
-
+	write_log('File upload detected! ');
+	write_log($fileinfo);
+	if (array_key_exists('error',$fileinfo) && $fileinfo['error'] == true)
+		return;
+	$image_exts = array( 'jpg', 'jpeg', 'jpe', 'gif', 'png' );
+    $check = wp_check_filetype( $fileinfo['file'] );
+	if (in_array($check['ext'], $image_exts))
+		return;
+    $file = $fileinfo['file'];
+	write_log('None-image file upload detected! ' . $file);
+	
     if ( get_option('dos_debug') == 1 ) {
-
       $log = new Katzgrau\KLogger\Logger(plugin_dir_path(__FILE__) . '/logs', Psr\Log\LogLevel::DEBUG,
         array('prefix' => __FUNCTION__ . '_', 'extension' => 'log'));
       $log->info('Starts unload file');
       $log->info('File path: ' . $file);
-      //$log->info("MetaData: \n" . dos_dump($meta));
-
     }
-
     if ( get_option('dos_lazy_upload') == 1 ) {
  		if ( get_option('dos_use_redis_queue') == 1) {
-			dos_redis_queue_push($file, 0, false);
-
-// 			if ($redis == null) {
-// 				$redis = new Redis(); 
-// 			   $redis->connect(get_option('dos_redis_host'), get_option('dos_redis_port')); 
-// 			}
-// 			write_log('Pushed to Redis: ' . $filepath);
-		
-		   //store data in redis list 
-// 		   $redisdata = $filepath . ',0,1';
-// 		   $redis->lpush("dos_upload_queue", $redisdata); 
-// 		   
-		
+			dos_redis_queue_push($file, 0, false);		
 		} else {
-			  wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
-// 			write_log('Scheduled by wp cron: ' . $filepath);
-			
+			wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
 		}
-
-
     } else {
-
-      dos_file_upload($file);
-
+		dos_file_upload($file);
     }
-
-  }
-
-  return true;
-  
+	return true;
 }
+
+// function dos_storage_upload ($postID) {
+// 	global $redis;
+//   if ( wp_attachment_is_image($postID) == false ) {
+//     $file = get_attached_file($postID);
+//     if ( get_option('dos_debug') == 1 ) {
+//       $log = new Katzgrau\KLogger\Logger(plugin_dir_path(__FILE__) . '/logs', Psr\Log\LogLevel::DEBUG,
+//         array('prefix' => __FUNCTION__ . '_', 'extension' => 'log'));
+//       $log->info('Starts unload file');
+//       $log->info('File path: ' . $file);
+//     }
+//     if ( get_option('dos_lazy_upload') == 1 ) {
+//  		if ( get_option('dos_use_redis_queue') == 1) {
+// 			dos_redis_queue_push($file, 0, false);		
+// 		} else {
+// 			  wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
+// 		}
+//     } else {
+//       dos_file_upload($file);
+//     }
+//   }
+//   return true;
+// }
 
 /**
  * Deletes the file from storage
@@ -428,7 +432,28 @@ function dos_storage_delete ($file) {
   }
 
 }
+function dos_builder_get_upload_dir( $dir_info ) {
+// 	write_log($dir_info);
+	$elements = explode('/', $dir_info['url']); 
+	$dir_name = $elements[sizeof($elements) - 2];
+    $dir_info['url'] = get_option('siteurl') . "/wp-content/uploads/$dir_name/";
+    return $dir_info;
+}
+add_filter( 'fl_builder_get_upload_dir', 'dos_builder_get_upload_dir' );
+// function dos_upload_url($args) {
+//   $regex = get_option('dos_filter');
 
+//   // prepare regex
+//   if ( $regex == '*' ) {
+//     $regex = '';
+//   }
+// 	write_log($args);
+//     // check if readable and regex matched
+//     if ($regex != '' && preg_match( $regex, $args['subdir']) ) {	
+// 		$args['baseurl'] = 'https://designmax.us/wp-content/uploads'; 
+// 	} 
+// 	return $args; 
+// }
 /**
  * Uploads thumbnails using data from $metadata and adds schedule processes
  * @param array $metadata
@@ -625,6 +650,9 @@ if (get_option('dos_storage_file_only') == 1) {
     function dos_unique_file_name($filename, $filename_raw) {
         $elements = explode('.', $filename);
         $size = sizeof($elements);
+		$image_exts = array( 'jpg', 'jpeg', 'jpe', 'gif', 'png' );
+		if (!in_array($elements[$size-1], $image_exts))
+			return $filename;
         if ($size>1) {
             $elements[$size-2] = $elements[$size-2] . '-' . get_random_string();
         } else {
@@ -737,13 +765,14 @@ function dos_bulk_file_upload($file_array) {
 		// Now create multiple commands for batching the files to S3
 		if ( is_readable($file)) {
 			$s3key = ltrim(dos_filepath($file),'/');
-			$ext = pathinfo($file, PATHINFO_EXTENSION);
+// 			$ext = pathinfo($file, PATHINFO_EXTENSION);
+			$filetype = wp_check_filetype($args[0]);
 			$commands[] = $s3Client->getCommand('PutObject', array(
 				'Bucket' => $dos_container,
 				'Key'    => $s3key,
 				'Body' => fopen ( $file, 'r' ),
 				'ACL' => 'public-read',
-				'ContentType' => "image/$ext"
+				'ContentType' => $filetype['type']
 			));
 		}
 	}
@@ -1005,13 +1034,15 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 			$args = explode(',',$entry);
 			if ( is_readable($args[0])) {
 				$s3key = ltrim(dos_filepath($args[0]),'/');
-				$ext = pathinfo($args[0], PATHINFO_EXTENSION);
+				$filetype = wp_check_filetype($args[0]);
+// 				echo $filetype['ext']; // will output jpg				
+// 				$ext = pathinfo($args[0], PATHINFO_EXTENSION);
 				$commands[] = $s3Client->getCommand('PutObject', array(
 					'Bucket' => $dos_container,
 					'Key'    => $s3key,
 					'Body' => fopen ( $args[0], 'r' ),
 					'ACL' => 'public-read',
-					'ContentType' => "image/$ext"
+					'ContentType' => $filetype['type']
 				));
 			}
 		}
