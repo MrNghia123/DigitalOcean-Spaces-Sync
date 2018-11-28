@@ -440,6 +440,21 @@ function dos_builder_get_upload_dir( $dir_info ) {
     return $dir_info;
 }
 add_filter( 'fl_builder_get_upload_dir', 'dos_builder_get_upload_dir' );
+
+add_action('wp_enqueue_scripts', 'dos_astra_script_fix', 101);
+function dos_astra_script_fix()
+{
+    global $wp_scripts;
+	global $wp_styles;
+	write_log($wp_scripts->queue);
+	write_log($wp_styles->queue);
+// 	write_log($wp_scripts->queue['astra-addon-js']);
+// 	write_log($wp_styles->queue['astra-addon-css']);
+	
+//     wp_dequeue_script('astra-addon-js');
+//     wp_enqueue_script('astra-addon-js', get_stylesheet_directory_uri().'/scripts/yourjs.js', array('jquery'));
+}
+
 // function dos_upload_url($args) {
 //   $regex = get_option('dos_filter');
 
