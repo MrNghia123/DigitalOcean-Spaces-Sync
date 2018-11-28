@@ -444,11 +444,13 @@ add_filter( 'fl_builder_get_upload_dir', 'dos_builder_get_upload_dir' );
 function dos_astra_script_src($src, $handle) {
 	if ($handle == 'astra-addon-js')
 		write_log("Script source: $src");
+	return $src;
 }
 
 function dos_astra_style_src($src, $handle) {
 	if ($handle == 'astra-addon-css')
 		write_log("style source: $src");
+	return $src;
 }
 
 add_action('style_loader_src', 'dos_astra_style_src', 10, 2);
