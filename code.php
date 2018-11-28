@@ -346,41 +346,19 @@ function dos_file_delete ($file, $attempt = 0) {
  * @param int $postID Id upload file
  * @return bool
  */
-function dos_storage_upload ($fileinfo, $var) {
-	global $redis;
-	write_log('File upload detected! ');
-	write_log($fileinfo);
-	if (array_key_exists('error',$fileinfo) && $fileinfo['error'] == true)
-		return;
-	$image_exts = array( 'jpg', 'jpeg', 'jpe', 'gif', 'png' );
-    $check = wp_check_filetype( $fileinfo['file'] );
-	if (in_array($check['ext'], $image_exts))
-		return;
-    $file = $fileinfo['file'];
-	write_log('None-image file upload detected! ' . $file);
-	
-    if ( get_option('dos_debug') == 1 ) {
-      $log = new Katzgrau\KLogger\Logger(plugin_dir_path(__FILE__) . '/logs', Psr\Log\LogLevel::DEBUG,
-        array('prefix' => __FUNCTION__ . '_', 'extension' => 'log'));
-      $log->info('Starts unload file');
-      $log->info('File path: ' . $file);
-    }
-    if ( get_option('dos_lazy_upload') == 1 ) {
- 		if ( get_option('dos_use_redis_queue') == 1) {
-			dos_redis_queue_push($file, 0, false);		
-		} else {
-			wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
-		}
-    } else {
-		dos_file_upload($file);
-    }
-	return true;
-}
-
-// function dos_storage_upload ($postID) {
+// function dos_storage_upload ($fileinfo, $var) {
 // 	global $redis;
-//   if ( wp_attachment_is_image($postID) == false ) {
-//     $file = get_attached_file($postID);
+// 	write_log('File upload detected! ');
+// 	write_log($fileinfo);
+// 	if (array_key_exists('error',$fileinfo) && $fileinfo['error'] == true)
+// 		return;
+// 	$image_exts = array( 'jpg', 'jpeg', 'jpe', 'gif', 'png' );
+//     $check = wp_check_filetype( $fileinfo['file'] );
+// 	if (in_array($check['ext'], $image_exts))
+// 		return;
+//     $file = $fileinfo['file'];
+// 	write_log('None-image file upload detected! ' . $file);
+	
 //     if ( get_option('dos_debug') == 1 ) {
 //       $log = new Katzgrau\KLogger\Logger(plugin_dir_path(__FILE__) . '/logs', Psr\Log\LogLevel::DEBUG,
 //         array('prefix' => __FUNCTION__ . '_', 'extension' => 'log'));
@@ -391,14 +369,36 @@ function dos_storage_upload ($fileinfo, $var) {
 //  		if ( get_option('dos_use_redis_queue') == 1) {
 // 			dos_redis_queue_push($file, 0, false);		
 // 		} else {
-// 			  wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
+// 			wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
 // 		}
 //     } else {
-//       dos_file_upload($file);
+// 		dos_file_upload($file);
 //     }
-//   }
-//   return true;
+// 	return true;
 // }
+
+function dos_storage_upload ($postID) {
+	global $redis;
+  if ( wp_attachment_is_image($postID) == false ) {
+    $file = get_attached_file($postID);
+    if ( get_option('dos_debug') == 1 ) {
+      $log = new Katzgrau\KLogger\Logger(plugin_dir_path(__FILE__) . '/logs', Psr\Log\LogLevel::DEBUG,
+        array('prefix' => __FUNCTION__ . '_', 'extension' => 'log'));
+      $log->info('Starts unload file');
+      $log->info('File path: ' . $file);
+    }
+    if ( get_option('dos_lazy_upload') == 1 ) {
+ 		if ( get_option('dos_use_redis_queue') == 1) {
+			dos_redis_queue_push($file, 0, false);		
+		} else {
+			  wp_schedule_single_event( time(), 'dos_schedule_upload', array($file));
+		}
+    } else {
+      dos_file_upload($file);
+    }
+  }
+  return true;
+}
 
 /**
  * Deletes the file from storage
