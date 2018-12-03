@@ -1030,7 +1030,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		$dos_redis_queue_batch_size =  get_option('dos_redis_queue_batch_size',25);
 		$dos_container = get_option('dos_container');
 		$dos_storage_file_only = get_option('dos_storage_file_only');
-		$dos_retry_count = get_option('dos_retry_count');
+		$dos_retry_count = get_option('dos_retry_count',-1);
 		$jobs = dos_redis_queue_pop(); 
 		$commands = array();
 		foreach ($jobs as $entry) {
@@ -1067,7 +1067,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 			) use ($jobs, $dos_storage_file_only) {
 				$args = explode(',',$jobs[$iterKey]);
 				$pathToFile = $args[0];
-// 				write_log("Completed {$iterKey}: {$result} {$pathToFile}");
+				write_log("Completed {$iterKey}: {$result} {$pathToFile}");
 				if ($dos_storage_file_only == 1) {
 					dos_file_delete($pathToFile);
 					
@@ -1084,7 +1084,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 				$pathToFile = $args[0];
 				write_log("Failed to upload {$pathToFile}: {$reason}");
 				$del = $args[2];
-				if ( !$dos_retry_count ||  $attempt < $dos_retry_count ) {
+				if ( $dos_retry_count == -1 ||  $attempt < $dos_retry_count ) {
 					dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
 				}
 			},
