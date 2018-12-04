@@ -1078,7 +1078,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 				Aws\S3\Exception\S3Exception $reason,
 				$iterKey,
 				PromiseInterface $aggregatePromise
-			) use ($jobs) {
+			) use ($jobs, $dos_retry_count) {
 				$args = explode(',',$jobs[$iterKey]);
 				$attempt = (int)$args[1];
 				$pathToFile = $args[0];
