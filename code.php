@@ -1030,7 +1030,11 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		$dos_redis_queue_batch_size =  get_option('dos_redis_queue_batch_size',25);
 		$dos_container = get_option('dos_container');
 		$dos_storage_file_only = get_option('dos_storage_file_only');
-		$dos_retry_count = get_option('dos_retry_count',-1);
+		$dos_retry_count = get_option('dos_retry_count');
+		if (!$dos_retry_count)
+			$dos_retry_count = -1;
+		else
+			$dos_retry_count = (int)$dos_retry_count;
 		$jobs = dos_redis_queue_pop(); 
 		$commands = array();
 		foreach ($jobs as $entry) {
@@ -1085,6 +1089,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 				write_log("Failed to upload {$pathToFile}");
 				$del = $args[2];
 				if ( $dos_retry_count == -1 ||  $attempt < $dos_retry_count ) {
+					write_log("requeue {$pathToFile}");
 					dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
 				}
 			},
