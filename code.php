@@ -1067,7 +1067,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 			) use ($jobs, $dos_storage_file_only) {
 				$args = explode(',',$jobs[$iterKey]);
 				$pathToFile = $args[0];
-				write_log("Completed {$iterKey}: {$result} {$pathToFile}");
+				write_log("Upload completed {$iterKey}: {$pathToFile}");
 				if ($dos_storage_file_only == 1) {
 					dos_file_delete($pathToFile);
 					
@@ -1082,7 +1082,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 				$args = explode(',',$jobs[$iterKey]);
 				$attempt = (int)$args[1];
 				$pathToFile = $args[0];
-				write_log("Failed to upload {$pathToFile}: {$reason}");
+				write_log("Failed to upload {$pathToFile}");
 				$del = $args[2];
 				if ( $dos_retry_count == -1 ||  $attempt < $dos_retry_count ) {
 					dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
