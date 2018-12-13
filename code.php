@@ -852,7 +852,7 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		$new_entry = $pathToFile . ',' . $attempt . ',' . ($del?"1":"0");
 		$redis->zadd('dos_delayed_queue', time() + $delay, $new_entry);
 	}
-	function dos_redis_queue_pop() {
+	function dos_redis_queue_pop($limit=500) {
 		global $redis;
 		if ($redis ==null) {
 			write_log('initializing redis');
@@ -862,8 +862,8 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		$redis->watch("dos_delayed_queue");
 // 		$results = $redis->zRangeByScore('dos_delayed_queue', 0, time(), array('limit' => array(0, 1)); /* array('val2') */
 
-		$results = $redis->zRangeByScore('dos_delayed_queue', 0, time());
-		write_log('Upload ' .  sizeof($results) . ' files');
+		$results = $redis->zRangeByScore('dos_delayed_queue', 0, time(), array('limit' => array(0, $limit)));
+		write_log('Queue pop ' .  sizeof($results) . ' files');
 		$redis->multi();
 		if ($results) {
 			foreach ($results as $entry) {
@@ -1036,73 +1036,77 @@ if (get_option('dos_lazy_upload') == 1 && get_option('dos_use_redis_queue') == 1
 		else
 			$dos_retry_count = (int)$dos_retry_count;
 		$jobs = dos_redis_queue_pop(); 
-		$commands = array();
-		foreach ($jobs as $entry) {
-			$args = explode(',',$entry);
-			if ( is_readable($args[0])) {
-				$s3key = ltrim(dos_filepath($args[0]),'/');
-				$filetype = wp_check_filetype($args[0]);
-// 				echo $filetype['ext']; // will output jpg				
-// 				$ext = pathinfo($args[0], PATHINFO_EXTENSION);
-				$commands[] = $s3Client->getCommand('PutObject', array(
-					'Bucket' => $dos_container,
-					'Key'    => $s3key,
-					'Body' => fopen ( $args[0], 'r' ),
-					'ACL' => 'public-read',
-					'ContentType' => $filetype['type']
-				));
+		while (sizeof($jobs) > 0) {
+			$commands = array();
+			foreach ($jobs as $entry) {
+				$args = explode(',',$entry);
+				if ( is_readable($args[0])) {
+					$s3key = ltrim(dos_filepath($args[0]),'/');
+					$filetype = wp_check_filetype($args[0]);
+	// 				echo $filetype['ext']; // will output jpg				
+	// 				$ext = pathinfo($args[0], PATHINFO_EXTENSION);
+					$commands[] = $s3Client->getCommand('PutObject', array(
+						'Bucket' => $dos_container,
+						'Key'    => $s3key,
+						'Body' => fopen ( $args[0], 'r' ),
+						'ACL' => 'public-read',
+						'ContentType' => $filetype['type']
+					));
+				}
 			}
+
+			// Create a pool and provide an optional array of configuration
+			// 
+			$pool = new CommandPool($s3Client, $commands, [
+				// Only send $dos_redis_queue_batch_size files at a time (this is set to 25 by default)
+				'concurrency' => $dos_redis_queue_batch_size,
+				// Invoke this function before executing each command
+				'before' => function (CommandInterface $cmd, $iterKey) {
+					// 					write_log( "About to send {$iterKey}: "
+					// 						. print_r($cmd->toArray(), true) . "\n");
+				},
+				// Invoke this function for each successful transfer
+				'fulfilled' => function (
+					ResultInterface $result,
+					$iterKey,
+					PromiseInterface $aggregatePromise
+				) use ($jobs, $dos_storage_file_only) {
+					$args = explode(',',$jobs[$iterKey]);
+					$pathToFile = $args[0];
+					write_log("Upload completed {$iterKey}: {$pathToFile}");
+					if ($dos_storage_file_only == 1) {
+						dos_file_delete($pathToFile);
+
+					}
+				},
+				// Invoke this function for each failed transfer
+				'rejected' => function (
+					Aws\S3\Exception\S3Exception $reason,
+					$iterKey,
+					PromiseInterface $aggregatePromise
+				) use ($jobs, $dos_retry_count) {
+					$args = explode(',',$jobs[$iterKey]);
+					$attempt = (int)$args[1];
+					$pathToFile = $args[0];
+					write_log("Failed to upload {$pathToFile}");
+					$del = $args[2];
+					if ( $dos_retry_count == -1 ||  $attempt < $dos_retry_count ) {
+						write_log("requeue {$pathToFile}");
+						dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
+					}
+				},
+			]);
+			write_log('Upload ' .  sizeof($commands) . ' files at concurrency ' . $dos_redis_queue_batch_size);
+
+			// Initiate the pool transfers
+			$promise = $pool->promise();
+
+			// Force the pool to complete synchronously
+			$promise->wait();
+			// 						
+			$jobs = dos_redis_queue_pop(); 
 		}
-
-		// Create a pool and provide an optional array of configuration
-		$pool = new CommandPool($s3Client, $commands, [
-			// Only send $dos_redis_queue_batch_size files at a time (this is set to 25 by default)
-			'concurrency' => $dos_redis_queue_batch_size,
-			// Invoke this function before executing each command
-			'before' => function (CommandInterface $cmd, $iterKey) {
-				// 					write_log( "About to send {$iterKey}: "
-				// 						. print_r($cmd->toArray(), true) . "\n");
-			},
-			// Invoke this function for each successful transfer
-			'fulfilled' => function (
-				ResultInterface $result,
-				$iterKey,
-				PromiseInterface $aggregatePromise
-			) use ($jobs, $dos_storage_file_only) {
-				$args = explode(',',$jobs[$iterKey]);
-				$pathToFile = $args[0];
-				write_log("Upload completed {$iterKey}: {$pathToFile}");
-				if ($dos_storage_file_only == 1) {
-					dos_file_delete($pathToFile);
-					
-				}
-			},
-			// Invoke this function for each failed transfer
-			'rejected' => function (
-				Aws\S3\Exception\S3Exception $reason,
-				$iterKey,
-				PromiseInterface $aggregatePromise
-			) use ($jobs, $dos_retry_count) {
-				$args = explode(',',$jobs[$iterKey]);
-				$attempt = (int)$args[1];
-				$pathToFile = $args[0];
-				write_log("Failed to upload {$pathToFile}");
-				$del = $args[2];
-				if ( $dos_retry_count == -1 ||  $attempt < $dos_retry_count ) {
-					write_log("requeue {$pathToFile}");
-					dos_redis_queue_push($pathToFile, ++$attempt, $del, 60);
-				}
-			},
-		]);
-
-		// Initiate the pool transfers
-		$promise = $pool->promise();
-
-		// Force the pool to complete synchronously
-		$promise->wait();
-		// 						
 		write_log('dos_check_redis_and_upload exit');        
-
 	}
 	if( !wp_next_scheduled( 'dos_scan_redis_hook' ) ) {
 			wp_schedule_event( time(), 'dos_scan_schedule', 'dos_scan_redis_hook' );
